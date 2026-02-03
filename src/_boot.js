@@ -191,12 +191,12 @@ function createWindow(settings) {
         frame: settings.allowWindowed || false,
         backgroundColor: '#000000',
         webPreferences: {
-            devTools: true,
-	    enableRemoteModule: true,
-            contextIsolation: false,
+            devTools: settings.devTools || false,,
+	    enableRemoteModule: false,
+            contextIsolation: true,
             backgroundThrottling: false,
             webSecurity: true,
-            nodeIntegration: true,
+            nodeIntegration: false,
             nodeIntegrationInSubFrames: false,
             allowRunningInsecureContent: false,
             experimentalFeatures: settings.experimentalFeatures || false
