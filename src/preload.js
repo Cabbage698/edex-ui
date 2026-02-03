@@ -4,13 +4,15 @@ const { contextBridge, ipcRenderer, clipboard, shell } = require('electron');
 const allowedSendChannels = [
   'log', // as currently used
   'systeminformation-call',
-  'systeminformation-reply'
+  // keep other channels that the renderer needs to subscribe to
 ];
 
 const allowedInvokeChannels = [
   'read-settings',
   'write-settings',
   'get-app-version',
+  'get-user-data-path',
+  'read-shortcuts',
   'open-path'
 ];
 
@@ -31,12 +33,8 @@ contextBridge.exposeInMainWorld('edex', {
     }
   },
   on: (channel, listener) => {
-    // subscribe only to whitelisted channels used by renderer
-    if (allowedSendChannels.includes(channel) || allowedInvokeChannels.includes(channel)) {
-      ipcRenderer.on(channel, (event, ...args) => listener(...args));
-    } else {
-      console.warn(`edex.preload: on for disallowed channel: ${channel}`);
-    }
+    // allow renderer to subscribe to some reply channels
+    ipcRenderer.on(channel, (event, ...args) => listener(...args));
   },
   clipboard: {
     readText: () => clipboard.readText(),
