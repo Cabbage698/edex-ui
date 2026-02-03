@@ -191,7 +191,7 @@ function createWindow(settings) {
         frame: settings.allowWindowed || false,
         backgroundColor: '#000000',
         webPreferences: {
-            devTools: settings.devTools || false,,
+            devTools: settings.devTools || false,
 	    enableRemoteModule: false,
             contextIsolation: true,
             backgroundThrottling: false,
