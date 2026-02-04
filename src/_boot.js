@@ -1,5 +1,5 @@
 const signale = require("signale");
-const {app, BrowserWindow, dialog, shell} = require("electron");
+const {app, BrowserWindow, dialog, shell, ipcMain, globalShortcut} = require("electron");
 
 process.on("uncaughtException", e => {
     signale.fatal(e);
@@ -30,7 +30,6 @@ if (!gotLock) {
 signale.time("Startup");
 
 const electron = require("electron");
-require('@electron/remote/main').initialize()
 const ipc = electron.ipcMain;
 const path = require("path");
 const url = require("url");
@@ -192,7 +191,8 @@ function createWindow(settings) {
         backgroundColor: '#000000',
         webPreferences: {
             devTools: settings.devTools || false,
-	    enableRemoteModule: false,
+            enableRemoteModule: false,
+            preload: path.join(__dirname, "preload.js"),
             contextIsolation: true,
             backgroundThrottling: false,
             webSecurity: true,
@@ -218,6 +218,14 @@ function createWindow(settings) {
     }
 
     signale.watch("Waiting for frontend connection...");
+
+    win.on("resize", () => {
+        win.webContents.send("window-resize");
+    });
+
+    win.on("leave-full-screen", () => {
+        win.webContents.send("window-leave-full-screen");
+    });
 }
 
 app.on('ready', async () => {
@@ -344,6 +352,87 @@ app.on('ready', async () => {
     ipc.on("setKbOverride", (e, arg) => {
         kbOverride = arg;
     });
+});
+
+ipcMain.on("get-user-data-path", event => {
+    event.returnValue = app.getPath("userData");
+});
+
+ipcMain.on("get-process-argv", event => {
+    event.returnValue = process.argv;
+});
+
+ipcMain.on("get-app-version", event => {
+    event.returnValue = app.getVersion();
+});
+
+ipcMain.on("app-focus", () => {
+    app.focus({ steal: true });
+});
+
+ipcMain.on("app-relaunch", () => {
+    app.relaunch();
+});
+
+ipcMain.on("app-quit", () => {
+    app.quit();
+});
+
+const getSenderWindow = event => BrowserWindow.fromWebContents(event.sender);
+
+ipcMain.handle("window-get-size", event => {
+    const target = getSenderWindow(event);
+    return target ? target.getSize() : [0, 0];
+});
+
+ipcMain.handle("window-is-fullscreen", event => {
+    const target = getSenderWindow(event);
+    return target ? target.isFullScreen() : false;
+});
+
+ipcMain.handle("window-is-maximized", event => {
+    const target = getSenderWindow(event);
+    return target ? target.isMaximized() : false;
+});
+
+ipcMain.on("window-set-fullscreen", (event, value) => {
+    const target = getSenderWindow(event);
+    if (target) target.setFullScreen(Boolean(value));
+});
+
+ipcMain.on("window-set-size", (event, width, height) => {
+    const target = getSenderWindow(event);
+    if (target) target.setSize(Number(width), Number(height));
+});
+
+ipcMain.on("window-unmaximize", event => {
+    const target = getSenderWindow(event);
+    if (target) target.unmaximize();
+});
+
+ipcMain.on("window-toggle-devtools", event => {
+    const target = getSenderWindow(event);
+    if (target) target.webContents.toggleDevTools();
+});
+
+ipcMain.on("window-minimize", event => {
+    const target = getSenderWindow(event);
+    if (target) target.minimize();
+});
+
+ipcMain.handle("get-displays", () => {
+    return electron.screen.getAllDisplays();
+});
+
+ipcMain.on("shortcuts-register", (event, accelerator, payload) => {
+    if (!accelerator) return;
+    globalShortcut.register(accelerator, () => {
+        event.sender.send("global-shortcut", payload);
+    });
+});
+
+ipcMain.on("shortcuts-unregister-all", () => {
+    globalShortcut.unregisterAll();
 });
 
 app.on('web-contents-created', (e, contents) => {

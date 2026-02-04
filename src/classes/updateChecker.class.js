@@ -2,8 +2,7 @@ class UpdateChecker {
     constructor() {
         let https = require("https");
         let electron = require("electron");
-        let remote = require("@electron/remote");
-        let current = remote.app.getVersion();
+        let current = window.edex.app.getVersion();
 
         this._failed = false;
         this._willfail = false;
