@@ -350,7 +350,20 @@ app.on('web-contents-created', (e, contents) => {
     // Prevent creating more than one window
     contents.on('new-window', (e, url) => {
         e.preventDefault();
-        shell.openExternal(url);
+        const isSafeExternalProtocol = urlString => {
+            try {
+                const parsed = new URL(urlString);
+                return ["http:", "https:"].includes(parsed.protocol);
+            } catch (error) {
+                return false;
+            }
+        };
+
+        if (isSafeExternalProtocol(url)) {
+            shell.openExternal(url);
+        } else {
+            signale.warn(`Blocked external navigation to unsupported protocol: ${url}`);
+        }
     });
 
     // Prevent loading something else than the UI
