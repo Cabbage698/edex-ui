@@ -202,6 +202,7 @@ function createWindow(settings) {
             experimentalFeatures: settings.experimentalFeatures || false
         }
     });
+    require('@electron/remote/main').enable(win.webContents);
 
     win.loadURL(url.format({
         pathname: path.join(__dirname, 'ui.html'),
@@ -348,8 +349,7 @@ app.on('ready', async () => {
 
 app.on('web-contents-created', (e, contents) => {
     // Prevent creating more than one window
-    contents.on('new-window', (e, url) => {
-        e.preventDefault();
+    contents.setWindowOpenHandler(({ url }) => {
         const isSafeExternalProtocol = urlString => {
             try {
                 const parsed = new URL(urlString);
@@ -360,10 +360,12 @@ app.on('web-contents-created', (e, contents) => {
         };
 
         if (isSafeExternalProtocol(url)) {
-            shell.openExternal(url);
+            void shell.openExternal(url);
         } else {
             signale.warn(`Blocked external navigation to unsupported protocol: ${url}`);
         }
+
+        return { action: "deny" };
     });
 
     // Prevent loading something else than the UI
