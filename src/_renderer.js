@@ -39,6 +39,7 @@ const fs = require("fs");
 const electron = require("electron");
 const remote = require("@electron/remote");
 const ipc = electron.ipcRenderer;
+const cspNonce = ipc.sendSync("getCspNonce");
 
 const settingsDir = remote.app.getPath("userData");
 const themesDir = path.join(settingsDir, "themes");
@@ -104,7 +105,10 @@ window._loadTheme = theme => {
     document.fonts.add(termFont);
     document.fonts.load("12px "+theme.terminal.fontFamily);
 
-    document.querySelector("head").innerHTML += `<style class="theming">
+    const themeStyle = document.createElement("style");
+    themeStyle.className = "theming";
+    themeStyle.setAttribute("nonce", cspNonce);
+    themeStyle.textContent = `
     :root {
         --font_main: "${window._purifyCSS(theme.cssvars.font_main)}";
         --font_main_light: "${window._purifyCSS(theme.cssvars.font_main_light)}";
@@ -131,7 +135,8 @@ window._loadTheme = theme => {
 	}
 
     ${window._purifyCSS(theme.injectCSS || "")}
-    </style>`;
+    `;
+    document.head.appendChild(themeStyle);
 
     window.theme = theme;
     window.theme.r = theme.colors.r;

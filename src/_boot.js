@@ -1,5 +1,6 @@
 const signale = require("signale");
 const {app, BrowserWindow, dialog, shell} = require("electron");
+const crypto = require("crypto");
 
 process.on("uncaughtException", e => {
     signale.fatal(e);
@@ -37,6 +38,7 @@ const url = require("url");
 const fs = require("fs");
 const which = require("which");
 const Terminal = require("./classes/terminal.class.js").Terminal;
+const cspNonce = crypto.randomBytes(16).toString("base64");
 
 ipc.on("log", (e, type, content) => {
     signale[type](content);
@@ -177,6 +179,14 @@ function createWindow(settings) {
     }
     let {x, y, width, height} = display.bounds;
     width++; height++;
+    const uiTemplate = fs.readFileSync(path.join(__dirname, "ui.html"), {encoding: "utf-8"});
+    const basePath = `file://${__dirname.replace(/\\/g, "/")}/`;
+    const uiHtml = uiTemplate
+        .replace(/__CSP_NONCE__/g, cspNonce)
+        .replace(/__BASE_PATH__/g, basePath);
+    const uiPath = path.join(electron.app.getPath("userData"), "ui.html");
+    fs.writeFileSync(uiPath, uiHtml, {encoding: "utf-8"});
+
     win = new BrowserWindow({
         title: "eDEX-UI",
         x,
@@ -204,7 +214,7 @@ function createWindow(settings) {
     });
 
     win.loadURL(url.format({
-        pathname: path.join(__dirname, 'ui.html'),
+        pathname: uiPath,
         protocol: 'file:',
         slashes: true
     }));
@@ -270,6 +280,10 @@ app.on('ready', async () => {
     // Support for multithreaded systeminformation calls
     signale.pending("Starting multithreaded calls controller...");
     require("./_multithread.js");
+
+    ipc.on("getCspNonce", (e, arg) => {
+        e.returnValue = cspNonce;
+    });
 
     createWindow(settings);
 
