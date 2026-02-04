@@ -361,28 +361,55 @@ app.on('ready', async () => {
 });
 
 app.on('web-contents-created', (e, contents) => {
+    const trustedDomains = [
+        "github.com",
+        "githubusercontent.com",
+        "github.io",
+        "docs.github.com",
+        "electronjs.org"
+    ];
+
+    const isTrustedDomain = hostname => {
+        if (!hostname) return false;
+        const normalized = hostname.toLowerCase();
+        return trustedDomains.some(domain => normalized === domain || normalized.endsWith(`.${domain}`));
+    };
+
+    const isTrustedNavigation = (urlString, currentUrl) => {
+        try {
+            const parsed = new URL(urlString);
+            if (parsed.protocol === "file:") {
+                return urlString === currentUrl;
+            }
+            if (!["http:", "https:"].includes(parsed.protocol)) {
+                return false;
+            }
+            return isTrustedDomain(parsed.hostname);
+        } catch (error) {
+            return false;
+        }
+    };
+
+    const logBlockedNavigation = (eventType, urlString) => {
+        signale.warn(`Blocked navigation (${eventType}) to ${urlString}`);
+    };
+
     // Prevent creating more than one window
     contents.on('new-window', (e, url) => {
         e.preventDefault();
-        const isSafeExternalProtocol = urlString => {
-            try {
-                const parsed = new URL(urlString);
-                return ["http:", "https:"].includes(parsed.protocol);
-            } catch (error) {
-                return false;
-            }
-        };
-
-        if (isSafeExternalProtocol(url)) {
+        if (isTrustedNavigation(url, contents.getURL())) {
             shell.openExternal(url);
         } else {
-            signale.warn(`Blocked external navigation to unsupported protocol: ${url}`);
+            logBlockedNavigation("new-window", url);
         }
     });
 
     // Prevent loading something else than the UI
     contents.on('will-navigate', (e, url) => {
-        if (url !== contents.getURL()) e.preventDefault();
+        if (!isTrustedNavigation(url, contents.getURL())) {
+            e.preventDefault();
+            logBlockedNavigation("will-navigate", url);
+        }
     });
 });
 
